@@ -1,0 +1,18 @@
+{
+  "name": "acq-inc-crawler",
+  "version": "1.0.0",
+  "description": "A script that uses simplecrawler to pull down audio from the acq-inc website for listening on the go",
+  "main": "index.js",
+  "scripts": {
+    "test": "test",
+    "start": "node index.js"
+  },
+  "author": "TheHanna",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^0.22.0",
+    "follow-redirects": "^1.2.3",
+    "lodash": "^4.17.4",
+    "tinyreq": "^3.2.2"
+  }
+}
