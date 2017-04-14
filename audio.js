@@ -3,21 +3,25 @@ const urlparser = require('url')
 const fs = require('fs')
 const http = require('follow-redirects').http
 const scrape = require('./scrape')
+const DownloadQueue = require('./queue')
 const format = require('./format')
 const validate = require('./validate')
 
+let queue = new DownloadQueue()
+
 class AudioFile {
   constructor(params) {
+    console.log('audio file construction begun')
     let valid = validate.file(params)
     if (valid) {
+      console.log('audio file construction successful')
       this.url = urlparser.parse(params.source)
       this.date = format.date.audio(new Date(params.date))
       this.name = format.name.audio(params.name)
-      this.path = params.path
+      this.path = params.path.search(/\/$/) > 0 ? params.path : `${params.path}/`
       this.extension = params.extension ? params.extension : 'mp3'
       this.filename = `${this.date}-${this.name}.${this.extension}`
       this.filepath = `${this.path}${this.filename}`
-      this.download = false
       this.downloaded = null
     } else {
       throw new Error('Invalid parameter(s)')
@@ -25,77 +29,49 @@ class AudioFile {
   }
 
   fetch(callback) {
+    console.log('fetching audio data')
     http.request({
       method: 'HEAD',
       hostname: this.url.hostname,
       path: this.url.path,
       port: 80
     }, callback).on('error', httpErr => {
+      console.log('FETCH ERROR:', httpErr.code)
       this.fetch(callback)
     }).end()
   }
 
   download() {
-    path = (path.search(/\/$/) > 0) ? path : `${path}/`
+    console.log('downloading audio file')
     http.get({
       hostname: this.url.hostname,
       path: this.url.path,
       port: 80
     }, res => {
-      this.write(path, res)
+      this.write(res)
     }).on('error', httpErr => {
-      console.log(httpErr.code)
-      this.download(path)
+      console.log('DOWNLOAD ERROR:', httpErr.code)
+      if (httpErr.code === 'EEXIST') return
+      this.download()
     }).end()
   }
 
   write(data) {
-    let filename = `${path}${this.filename}-${this.name}.mp3`
-    let file = fs.createWriteStream(filename).on('open', fd => {
-      console.log(filename, fd)
-    })
-    file.end()
-    // data.on('readable', () => {
-    //   file = fs.createWriteStream(name, { flags: 'wx' })
-    // }).on('data', chunk => {
-    //   if (file) file.write(chunk)
-    // }).on('end', () => {
-    //   if (file) file.end()
-    // })
+    console.log('writing audio data')
+    let file = fs.createWriteStream(this.filepath, { flags: 'wx' })
+      .on('open', fd => {
+        data.on('data', chunk => file.write(chunk))
+            .on('end', () => file.end())
+      })
+      .on('error', err => {
+        data.destroy(err)
+        file.end()
+      })
   }
 }
-
-class DownloadQueue {
-  constructor(params) {
-    let defaults = {
-      autoStart: true,
-      maxRetries: 5,
-      maxConcurrent: 3,
-      path: ''
-    }
-    params = params ? _.assignIn(params, defaults) : defaults
-    _.forEach(params, (value, key) => { this[key] = value })
-    this.waiting = []
-    this.active = []
-    this.done = []
-  }
-
-  slotsOpen() {
-    return this.active.length < this.maxConcurrent
-  }
-
-  add(file) {
-    validate.notexist(file.filepath, () => {
-      let dest = this.autoStart && this.slotsOpen ? this.active : this.waiting
-      dest.push(file)
-      console.log('added file to queue');
-    })
-  }
-}
-
-let queue = new DownloadQueue()
 
 function init(url) {
+  console.log('initializing audio module')
   scrape(url, {
     files: {
       selector: 'a.gradBtn',
@@ -107,6 +83,7 @@ function init(url) {
 }
 
 function compile(data) {
+  console.log('compiling audio data')
   let file = data.files[0]
   // _.forEach(data.files, file => {
     if (!validate.url(file)) return
@@ -129,14 +106,12 @@ function compile(data) {
 }
 
 function build(params) {
+  console.log('building audio file objects')
   params.path = 'podcasts/'
-  console.log('building...');
   let file = new AudioFile(params)
   file.fetch(res => {
-    console.log(res.statusCode)
+    console.log('audio data fetched', res.statusCode)
     if (res.statusCode === 200) queue.add(file)
-    // console.log(res.statusCode)
-    // if (res.statusCode === 200) file.download('podcasts/')
   })
 }
 

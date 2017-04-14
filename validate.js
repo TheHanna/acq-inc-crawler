@@ -14,16 +14,18 @@ const url = url => hostname === urlparser.parse(url).hostname
 const file = f => url(f.source) && !!f.name && !!Date.parse(f.date)
 
 const notexist = (f, callback) => {
-  console.log('checking if file exists');
+  console.log('checking if file exists', f)
   fs.access(f, err => {
+    console.log(err)
     if (err) {
       if (err.code === 'EEXIST') {
-        console.log(f.filename, 'already exists at path', f.path)
+        console.log(f, 'already exists')
         return
       }
       console.log(err)
       return
     }
+    console.log(f.filename, 'file does not exist at path', f.path)
     callback()
   })
 }

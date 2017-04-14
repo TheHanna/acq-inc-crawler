@@ -3,8 +3,9 @@ const cheerio = require('cheerio')
 const _ = require('lodash')
 
 function scrape(url, matchers, callback) {
+  console.log('attempting to scrape', url, 'for', _.keys(matchers))
   req(url, (err, body) => {
-    if (err) return
+    if (err) return retry(err, url, matchers, callback)
 
     let $ = cheerio.load(body)
     let pageData = {}
@@ -18,10 +19,11 @@ function scrape(url, matchers, callback) {
     })
     callback(pageData)
   })
-  .on('error', httpErr => {
-    console.log('Error getting', url, ', retrying')
-    scrape(url, matchers, callback)
-  })
+}
+
+function retry(err, url, matchers, callback) {
+  console.log('Error getting', url + ', retrying')
+  scrape(url, matchers, callback)
 }
 
 module.exports = scrape
